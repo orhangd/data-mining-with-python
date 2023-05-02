@@ -1,0 +1,78 @@
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import plotly.graph_objs as go
+import plotly.express as px
+from plotly.offline import plot
+import plotly.graph_objs as go
+
+
+# Verileri yükleme
+df = pd.read_excel('krematp.xlsx') 
+
+print(df)
+  
+
+
+# Negatif değerleri içeren sütunun adını seç
+column_name = 'miktar'
+
+# Sütundaki negatif değerleri içeren satırları sil
+df = df[df[column_name] >= 0]
+
+
+
+df['ay'] = df['tarih'].dt.month
+df['yıl'] = df['tarih'].dt.year
+
+ 
+
+# Verileri ay ve miktar sütunlarına ayırma
+y = df.iloc[:, 8:9].values
+X = df.iloc[:, 7:8].values
+
+
+
+# Verileri eğitim ve test setlerine ayırma
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=0)
+
+# XGBoost modeli için parametrelerimizi belirleme
+xgb_params = {
+    'max_depth': 5,
+    'n_estimators': 50,
+    'learning_rate': 0.05,
+    'reg_alpha': 0.1,
+    'subsample': 0.7,
+    'colsample_bytree': 0.7,
+    'objective': 'reg:squarederror',
+    'silent': True,
+    'nthread': 4
+}
+
+# XGBoost modeli için öğrenme işlemi
+xgb_model = xgb.XGBRegressor(**xgb_params)
+xgb_model.fit(X_train, y_train)
+
+# XGBoost modeli ile tahminler yapma
+y_pred = xgb_model.predict(X_test)
+
+# Model performansını değerlendirme
+mse = mean_squared_error(y_test, y_pred)
+print('MSE:', mse)
+
+from sklearn.metrics import r2_score
+r2 = r2_score(y_test, y_pred)
+print('Başarı yüzdesi/success percentage:', r2*100)
+
+
+
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(x=X_test.flatten(), y=y_test.flatten(), mode='markers', name='Gerçek Değerler//Actual', marker=dict(color='red', size=10)))
+fig.add_trace(go.Scatter(x=X_test.flatten(), y=y_pred.flatten(), mode='markers', name='Tahmin Edilen Değerler//Estimated', marker=dict(color='blue', size=10)))
+
+fig.update_layout(title='Gerçek vs Tahmin Edilen Değerler//Actual vs. Estimated Values', xaxis_title='amount', yaxis_title='months')
+plot(fig)
